@@ -2,40 +2,271 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>Codeforces 固定成员 Contest Rating 排名表（API+颜色+分段背景）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CF Rating Board</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 2em; }
-    table { border-collapse: collapse; margin-top: 1em; min-width: 350px; }
-    th, td { border: 1px solid #ccc; padding: 0.5em 1em; text-align: center; }
-    th { background: #f8f8f8; }
-    #loading { color: #999; }
-    .error { color: red; }
-    .bg-top30 { background: #ffeedd; }   /* 前30名背景色 */
-    .bg-top45 { background: #eef7ff; }   /* 31-45名背景色 */
+    :root {
+      --radius-sm: 6px;
+      --radius-md: 12px;
+      --shadow-sm: 0 2px 4px rgba(0,0,0,.05);
+      --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+      --color-bg: #fafafa;
+      --color-card: #fff;
+      --color-border: #eaeaea;
+      --color-text: #111;
+      --color-text-secondary: #666;
+      --color-primary: #0070f3;
+      --color-top30: #ff9800;
+      --color-top45: #2196f3;
+      --color-rest: #9e9e9e;
+      --transition: all .15s ease;
+    }
 
-    /* Codeforces 用户等级颜色 */
-    .cf-user-gray { color: #808080; }
-    .cf-user-green { color: #008000; }
-    .cf-user-cyan { color: #03A89E; }
-    .cf-user-blue { color: #0000CC; }
-    .cf-user-violet { color: #AA00AA; }
-    .cf-user-orange { color: #FF8C00; }
-    .cf-user-red { color: #FF3333; }
-    .cf-user-legendary { color: #000000; font-weight:bold; background: linear-gradient(90deg, #FFD700, #FF3333, #000); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    }
+
+    body {
+      background: var(--color-bg);
+      color: var(--color-text);
+      line-height: 1.6;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 2rem;
+    }
+
+    .title {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: .5rem;
+    }
+
+    .subtitle {
+      color: var(--color-text-secondary);
+      font-size: .9rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--color-card);
+      padding: 1.25rem;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition);
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .stat-label {
+      font-size: .875rem;
+      color: var(--color-text-secondary);
+      margin-bottom: .5rem;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .refresh-btn {
+      background: var(--color-primary);
+      color: white;
+      border: none;
+      padding: .75rem 1.5rem;
+      border-radius: var(--radius-sm);
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+      margin-bottom: 2rem;
+    }
+
+    .refresh-btn:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+    }
+
+    .table-container {
+      background: var(--color-card);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      text-align: left;
+      padding: 1rem;
+      font-size: .875rem;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      background: var(--color-bg);
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    td {
+      padding: 1rem;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .rank {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+    }
+
+    .user-link {
+      text-decoration: none;
+      transition: var(--transition);
+    }
+
+    .rating {
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+    }
+
+    /* CF Rating Colors */
+    .user-legendary {
+      background: linear-gradient(to right, #FF0000, #FFA500, #FF0000);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 700;
+    }
+    .user-red { color: #FF0000; }
+    .user-orange { color: #FF8C00; }
+    .user-violet { color: #AA00AA; }
+    .user-blue { color: #0000FF; }
+    .user-cyan { color: #03A89E; }
+    .user-green { color: #008000; }
+    .user-gray { color: #808080; }
+
+    /* Rank Rows */
+    .rank-top30 {
+      background: linear-gradient(to right, rgba(255,152,0,.03), transparent);
+      border-left: 3px solid var(--color-top30);
+    }
+
+    .rank-top45 {
+      background: linear-gradient(to right, rgba(33,150,243,.03), transparent);
+      border-left: 3px solid var(--color-top45);
+    }
+
+    .rank-rest {
+      border-left: 3px solid transparent;
+    }
+
+    /* Loading State */
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: var(--color-text-secondary);
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--color-border);
+      border-top-color: var(--color-primary);
+      border-radius: 50%;
+      margin: 0 auto 1rem;
+      animation: spin .8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stat-card {
+        padding: 1rem;
+      }
+
+      th, td {
+        padding: .75rem;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1>Codeforces 固定成员 Contest Rating 排名表</h1>
-  <button id="refresh">抓取最新排名</button>
-  <span id="loading"></span>
-  <table id="rankingTable" style="display:none">
-    <thead>
-      <tr><th>排名</th><th>用户名</th><th>Rating</th></tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <div class="container">
+    <header class="header">
+      <h1 class="title">Codeforces Rating Board</h1>
+      <p class="subtitle">实时成员评分排名</p>
+    </header>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">前30名分数线</div>
+        <div class="stat-value" id="top30-rating">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">前45名分数线</div>
+        <div class="stat-value" id="top45-rating">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">总参与人数</div>
+        <div class="stat-value" id="total-count">-</div>
+      </div>
+    </div>
+
+    <button class="refresh-btn" id="refresh">
+      更新数据
+    </button>
+
+    <div class="table-container">
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        点击"更新数据"获取最新排名
+      </div>
+      <table id="rankingTable" style="display:none">
+        <thead>
+          <tr>
+            <th style="width: 80px">#</th>
+            <th>用户</th>
+            <th style="width: 100px">Rating</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
   <script>
-    // 固定成员名单（除了MyCall）
     const handles = [
       "400pts-CET6","9952594","AmbroseNowge","arumi","aventurine","blastofwind","blueacid","blueMOON137","cgyfans2","date727","DCZSX","EatOrSleep","ElandaNya",
       "eysikinga","f1andre1145","FutureHasTomorrow","hbh2006","HunGryDuck","Hust0518","husterkk","IriZ","JHJack","kurumijeager","L_rose_plus","LanFa_FATHER",
@@ -44,17 +275,16 @@
       "sqsfx","stickv","Takami-Chika","train_fang","wandasd.","wangzai_733","wrp_milkdragon","yinanxi010502","Yurica","Yushijiao","yyysai_ko","ZHSZHS111","zztsubaki"
     ];
 
-    // Codeforces rating颜色规则
-    function getCfClass(rating) {
-      if (rating == null) return 'cf-user-gray';
-      if (rating >= 3000) return 'cf-user-legendary';
-      if (rating >= 2400) return 'cf-user-red';
-      if (rating >= 2100) return 'cf-user-orange';
-      if (rating >= 1900) return 'cf-user-violet';
-      if (rating >= 1600) return 'cf-user-blue';
-      if (rating >= 1400) return 'cf-user-cyan';
-      if (rating >= 1200) return 'cf-user-green';
-      return 'cf-user-gray';
+    function getUserClass(rating) {
+      if (!rating) return 'user-gray';
+      if (rating >= 3000) return 'user-legendary';
+      if (rating >= 2400) return 'user-red';
+      if (rating >= 2100) return 'user-orange';
+      if (rating >= 1900) return 'user-violet';
+      if (rating >= 1600) return 'user-blue';
+      if (rating >= 1400) return 'user-cyan';
+      if (rating >= 1200) return 'user-green';
+      return 'user-gray';
     }
 
     async function fetchRatings(handles) {
@@ -69,47 +299,67 @@
       }));
     }
 
-    async function main() {
-      document.getElementById('rankingTable').style.display = 'none';
-      document.getElementById('loading').className = '';
-      document.getElementById('loading').textContent = `正在抓取...`;
-      let result;
+    async function updateRankings() {
+      const loadingEl = document.getElementById('loading');
+      const tableEl = document.getElementById('rankingTable');
+      const refreshBtn = document.getElementById('refresh');
+      
+      refreshBtn.disabled = true;
+      tableEl.style.display = 'none';
+      loadingEl.style.display = 'block';
+      loadingEl.innerHTML = '<div class="spinner"></div>正在更新数据...';
+
       try {
-        // Codeforces API每次最多100个handle，分批
-        let batchSize = 90;
-        let all = [];
-        for(let i=0; i<handles.length; i+=batchSize) {
-          let part = handles.slice(i, i+batchSize);
-          let res = await fetchRatings(part);
-          all = all.concat(res);
+        const batchSize = 90;
+        let results = [];
+        for (let i = 0; i < handles.length; i += batchSize) {
+          const batch = handles.slice(i, i + batchSize);
+          const batchResults = await fetchRatings(batch);
+          results = results.concat(batchResults);
         }
-        result = all;
-      } catch (e) {
-        document.getElementById('loading').className = 'error';
-        document.getElementById('loading').textContent = '抓取失败: ' + e;
-        return;
+
+        results.sort((a, b) => b.rating - a.rating);
+
+        // Update stats
+        document.getElementById('total-count').textContent = results.length;
+        document.getElementById('top30-rating').textContent = 
+          results.length >= 30 ? results[29].rating : (results.length ? results[results.length - 1].rating : '-');
+        document.getElementById('top45-rating').textContent = 
+          results.length >= 45 ? results[44].rating : (results.length ? results[results.length - 1].rating : '-');
+
+        // Update table
+        const tbody = document.querySelector('#rankingTable tbody');
+        tbody.innerHTML = '';
+        
+        results.forEach((user, idx) => {
+          const row = document.createElement('tr');
+          row.className = idx < 30 ? 'rank-top30' : 
+                         idx < 45 ? 'rank-top45' : 
+                         'rank-rest';
+          
+          row.innerHTML = `
+            <td class="rank">${idx + 1}</td>
+            <td>
+              <a href="https://codeforces.com/profile/${user.handle}" 
+                 class="user-link ${getUserClass(user.rating)}" 
+                 target="_blank">${user.handle}</a>
+            </td>
+            <td class="rating">${user.rating}</td>
+          `;
+          
+          tbody.appendChild(row);
+        });
+
+        loadingEl.style.display = 'none';
+        tableEl.style.display = 'table';
+      } catch (err) {
+        loadingEl.innerHTML = `<div style="color: #e00">更新失败: ${err.message}</div>`;
+      } finally {
+        refreshBtn.disabled = false;
       }
-      // 排序（降序）
-      result.sort((a, b) => b.rating - a.rating);
-      let tbody = document.querySelector('#rankingTable tbody');
-      tbody.innerHTML = '';
-      result.forEach((user, idx) => {
-        let cfClass = getCfClass(user.rating);
-        let bgClass = '';
-        if (idx < 30) bgClass = 'bg-top30';
-        else if (idx < 45) bgClass = 'bg-top45';
-        let tr = document.createElement('tr');
-        tr.className = bgClass;
-        tr.innerHTML = `<td>${idx+1}</td><td><a href="https://codeforces.com/profile/${user.handle}" target="_blank" class="${cfClass}">${user.handle}</a></td><td>${user.rating}</td>`;
-        tbody.appendChild(tr);
-      });
-      document.getElementById('loading').textContent = `抓取完成，共 ${result.length} 人`;
-      document.getElementById('rankingTable').style.display = '';
     }
-    document.getElementById('refresh').onclick = main;
+
+    document.getElementById('refresh').onclick = updateRankings;
   </script>
-  <p style="margin-top:2em;color:#666;font-size:0.95em">
-    注：本页使用Codeforces官方API，用户名按cf等级着色，前30名与31-45名用不同背景色。
-  </p>
 </body>
 </html>
