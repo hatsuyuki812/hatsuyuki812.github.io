@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Codeforces 固定成员 Contest Rating 排名表（API+颜色+分段背景）</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2em; }
+    table { border-collapse: collapse; margin-top: 1em; min-width: 350px; }
+    th, td { border: 1px solid #ccc; padding: 0.5em 1em; text-align: center; }
+    th { background: #f8f8f8; }
+    #loading { color: #999; }
+    .error { color: red; }
+    .bg-top30 { background: #ffeedd; }   /* 前30名背景色 */
+    .bg-top45 { background: #eef7ff; }   /* 31-45名背景色 */
+
+    /* Codeforces 用户等级颜色 */
+    .cf-user-gray { color: #808080; }
+    .cf-user-green { color: #008000; }
+    .cf-user-cyan { color: #03A89E; }
+    .cf-user-blue { color: #0000CC; }
+    .cf-user-violet { color: #AA00AA; }
+    .cf-user-orange { color: #FF8C00; }
+    .cf-user-red { color: #FF3333; }
+    .cf-user-legendary { color: #000000; font-weight:bold; background: linear-gradient(90deg, #FFD700, #FF3333, #000); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  </style>
+</head>
+<body>
+  <h1>Codeforces 固定成员 Contest Rating 排名表</h1>
+  <button id="refresh">抓取最新排名</button>
+  <span id="loading"></span>
+  <table id="rankingTable" style="display:none">
+    <thead>
+      <tr><th>排名</th><th>用户名</th><th>Rating</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <script>
+    // 固定成员名单（除了MyCall）
+    const handles = [
+      "400pts-CET6","9952594","AmbroseNowge","arumi","aventurine","blastofwind","blueacid","blueMOON137","cgyfans2","date727","DCZSX","EatOrSleep","ElandaNya",
+      "eysikinga","f1andre1145","FutureHasTomorrow","hbh2006","HunGryDuck","Hust0518","husterkk","IriZ","JHJack","kurumijeager","L_rose_plus","LanFa_FATHER",
+      "liangyl233","linjiangxianyzsf","LiXing","lknfurina","lllmmmkkk","luguanshijiandaole","Masteyyy_","MYLOvO","nalaljc3","noaL02d","okuma","oulouloub",
+      "OumaeKumiko","paomianyu","PillowBomb","plafle","Rainbow_Blue","Rainbow_Cyan","Rainbow_orange","Rainbow_Purple","Rainbow_Red","Rainbow_Yellow",
+      "sqsfx","stickv","Takami-Chika","train_fang","wandasd.","wangzai_733","wrp_milkdragon","yinanxi010502","Yurica","Yushijiao","yyysai_ko","ZHSZHS111","zztsubaki"
+    ];
+
+    // Codeforces rating颜色规则
+    function getCfClass(rating) {
+      if (rating == null) return 'cf-user-gray';
+      if (rating >= 3000) return 'cf-user-legendary';
+      if (rating >= 2400) return 'cf-user-red';
+      if (rating >= 2100) return 'cf-user-orange';
+      if (rating >= 1900) return 'cf-user-violet';
+      if (rating >= 1600) return 'cf-user-blue';
+      if (rating >= 1400) return 'cf-user-cyan';
+      if (rating >= 1200) return 'cf-user-green';
+      return 'cf-user-gray';
+    }
+
+    async function fetchRatings(handles) {
+      const url = "https://codeforces.com/api/user.info?handles=" + handles.join(";");
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error("API请求失败");
+      const data = await resp.json();
+      if (data.status !== "OK") throw new Error(data.comment || "API返回异常");
+      return data.result.map(u => ({
+        handle: u.handle,
+        rating: u.rating ?? 0
+      }));
+    }
+
+    async function main() {
+      document.getElementById('rankingTable').style.display = 'none';
+      document.getElementById('loading').className = '';
+      document.getElementById('loading').textContent = `正在抓取...`;
+      let result;
+      try {
+        // Codeforces API每次最多100个handle，分批
+        let batchSize = 90;
+        let all = [];
+        for(let i=0; i<handles.length; i+=batchSize) {
+          let part = handles.slice(i, i+batchSize);
+          let res = await fetchRatings(part);
+          all = all.concat(res);
+        }
+        result = all;
+      } catch (e) {
+        document.getElementById('loading').className = 'error';
+        document.getElementById('loading').textContent = '抓取失败: ' + e;
+        return;
+      }
+      // 排序（降序）
+      result.sort((a, b) => b.rating - a.rating);
+      let tbody = document.querySelector('#rankingTable tbody');
+      tbody.innerHTML = '';
+      result.forEach((user, idx) => {
+        let cfClass = getCfClass(user.rating);
+        let bgClass = '';
+        if (idx < 30) bgClass = 'bg-top30';
+        else if (idx < 45) bgClass = 'bg-top45';
+        let tr = document.createElement('tr');
+        tr.className = bgClass;
+        tr.innerHTML = `<td>${idx+1}</td><td><a href="https://codeforces.com/profile/${user.handle}" target="_blank" class="${cfClass}">${user.handle}</a></td><td>${user.rating}</td>`;
+        tbody.appendChild(tr);
+      });
+      document.getElementById('loading').textContent = `抓取完成，共 ${result.length} 人`;
+      document.getElementById('rankingTable').style.display = '';
+    }
+    document.getElementById('refresh').onclick = main;
+  </script>
+  <p style="margin-top:2em;color:#666;font-size:0.95em">
+    注：本页使用Codeforces官方API，用户名按cf等级着色，前30名与31-45名用不同背景色。
+  </p>
+</body>
+</html>
