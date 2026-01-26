@@ -37,6 +37,16 @@
     //     return;
     //     // TODO pace stop loading animation
     // })
-
+    document.addEventListener('pjax:complete', () => {
+    // MathJax reload logic
+    if (window.MathJax) {
+        try {
+            window.MathJax.typesetPromise && window.MathJax.typesetPromise();
+        } catch (e) {
+            console.error('MathJax reload error:', e);
+        }
+    }
+    // TODO pace stop loading animation
+    });
     document.addEventListener('DOMContentLoaded', () => initPjax());
 }());
