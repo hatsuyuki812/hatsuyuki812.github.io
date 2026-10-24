@@ -316,14 +316,8 @@
 
     // Listen for completion of Pjax
     document.addEventListener('pjax:complete', () => {
-        // Plugin [MathJax] reload logic
-        if (window.MathJax) {
-            try {
-                window.MathJax.typesetPromise && window.MathJax.typesetPromise();
-            } catch (e) {
-                console.error('MathJax reload error:', e);
-            }
-        }
+        // mathjax-pjax.js handles MathJax once on pjax:success. A second
+        // typeset pass here would process MathJax's assistive MathML again.
         // Plugin [KaTeX]
         renderKatex();
         // PJAX scrolls the anchor of the new page to the top of the window, under a sticky navbar:

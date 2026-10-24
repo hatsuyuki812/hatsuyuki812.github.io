@@ -10834,6 +10834,19 @@ article.article .content {
   word-wrap: break-word;
   font-size: 1.1rem;
 }
+article.article .content .about-motto {
+  margin: 0 0 2rem;
+  padding: 1rem 0 1.5rem;
+  text-align: center;
+  font-family: 'Noto Serif SC', 'Songti SC', STSong, SimSun, serif;
+  font-size: clamp(1.1rem, 1.9vw, 1.45rem);
+  font-weight: 400;
+  line-height: 2.1;
+  letter-spacing: 0.08em;
+}
+article.article .content .about-motto span {
+  display: block;
+}
 article.article .content h1 {
   font-size: 1.75em;
 }

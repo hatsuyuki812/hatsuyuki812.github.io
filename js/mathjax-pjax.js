@@ -6,23 +6,16 @@
   if (window.__antipathyMathJaxPjax) return;
   window.__antipathyMathJaxPjax = true;
 
-  function article() {
-    return document.querySelector('[role="article"] .content');
+  function articles() {
+    return Array.from(document.querySelectorAll('[role="article"] > .content'));
   }
 
   function typeset() {
     if (!window.MathJax || typeof window.MathJax.typesetPromise !== 'function') return;
-    var target = article();
-    if (!target) return;
+    var targets = articles();
+    if (!targets.length) return;
     try {
-      // Clear MathJax's cache for nodes removed by PJAX before rendering the
-      // new article. The old article is no longer reachable from the DOM, so
-      // clearing without an element list is the only reliable way to remove
-      // its MathItems.
-      if (typeof window.MathJax.typesetClear === 'function') {
-        window.MathJax.typesetClear();
-      }
-      window.MathJax.typesetPromise([target]).catch(function (error) {
+      window.MathJax.typesetPromise(targets).catch(function (error) {
         console.error('MathJax PJAX typeset failed:', error);
       });
     } catch (error) {
@@ -30,11 +23,15 @@
     }
   }
 
-  window.addEventListener('load', typeset, { once: true });
-  ['pjax:success', 'pjax:complete', 'pjax:end'].forEach(function (eventName) {
-    document.addEventListener(eventName, function () {
-      // Wait until Icarus has replaced the article and browser layout is ready.
-      window.requestAnimationFrame(typeset);
-    });
+  // Clear the OLD articles while their DOM nodes are still present. Clearing
+  // after a normal page load makes MathJax typeset its own assistive MathML a
+  // second time. Initial page typesetting is already handled by MathJax itself.
+  document.addEventListener('pjax:send', function () {
+    if (window.MathJax && typeof window.MathJax.typesetClear === 'function') {
+      window.MathJax.typesetClear(articles());
+    }
+  });
+  document.addEventListener('pjax:success', function () {
+    window.requestAnimationFrame(typeset);
   });
 }());
