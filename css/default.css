@@ -13094,3 +13094,29 @@ html:where([data-appearance="dark"]) {
     box-shadow: 0 8px 24px rgba(0,0,0,0.45), 0 0 0 1px #30323a;
   }
 }
+.navbar-main button.navbar-item {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  box-shadow: none;
+  font-family: inherit;
+  text-transform: none;
+}
+.navbar-main button.navbar-item:hover,
+.navbar-main button.navbar-item:focus,
+.navbar-main button.navbar-item:active {
+  background: transparent;
+  box-shadow: none;
+}
+.searchbox,
+.searchbox input,
+.searchbox a,
+.searchbox button,
+.searchbox header {
+  font-family: inherit;
+  text-transform: none !important;
+  letter-spacing: normal;
+}
+.searchbox .searchbox-status {
+  padding: 1rem;
+}

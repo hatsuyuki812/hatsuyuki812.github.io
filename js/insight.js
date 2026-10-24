@@ -7,6 +7,36 @@ function loadInsight(config, translation) {
   const $main = $('.searchbox');
   const $input = $main.find('.searchbox-input');
   const $container = $main.find('.searchbox-body');
+  // PJAX keeps the search box but can execute its initialization script again.
+  // Keep one input handler and one set of document handlers for that box.
+  if (!$main.length || $main.data('insight-initialized')) return;
+  $main.data('insight-initialized', true);
+
+  let index = null;
+  let indexRequest = null;
+
+  function renderResults() {
+    if (index) searchResultToDOM($input.val(), search(index, $input.val()));
+  }
+
+  function refreshIndex() {
+    if (indexRequest) return;
+    // The index can change while this tab stays open (a new post in Hexo's
+    // preview server, or a new deployment). Refresh every time search opens;
+    // cache:false adds a unique query parameter to bypass browser/CDN caches.
+    indexRequest = $.ajax({ url: config.contentUrl, cache: false, dataType: 'json' })
+      .done((json) => {
+        index = json;
+        renderResults();
+      })
+      .fail(() => {
+        if (!index) {
+          $container.empty().append($('<p class="searchbox-status" role="status">')
+            .text(translation.error || '搜索索引加载失败，请关闭后重试。'));
+        }
+      })
+      .always(() => { indexRequest = null; });
+  }
 
   function section(title) {
     return $('<section>').addClass('searchbox-result-section').append($('<header>').text(title));
@@ -121,22 +151,23 @@ function loadInsight(config, translation) {
   function sectionFactory(keywords, type, array) {
     let $searchItems;
     if (array.length === 0) return null;
-    const sectionTitle = translation[type.toLowerCase()];
-    switch (type) {
-      case 'POSTS':
-      case 'PAGES':
+    const normalizedType = type.toLowerCase();
+    const sectionTitle = translation[normalizedType] || normalizedType;
+    switch (normalizedType) {
+      case 'posts':
+      case 'pages':
         $searchItems = array.map((item) => {
           const title = findAndHighlight(item.title, keywords);
           const text = findAndHighlight(item.text, keywords, 100);
           return searchItem('file', title, null, text, item.link);
         });
         break;
-      case 'CATEGORIES':
-      case 'TAGS':
+      case 'categories':
+      case 'tags':
         $searchItems = array.map((item) => {
           const name = findAndHighlight(item.name, keywords);
           const slug = findAndHighlight(item.slug, keywords);
-          return searchItem(type === 'CATEGORIES' ? 'folder' : 'tag', name, slug, null, item.link);
+          return searchItem(normalizedType === 'categories' ? 'folder' : 'tag', name, slug, null, item.link);
         });
         break;
       default:
@@ -147,7 +178,7 @@ function loadInsight(config, translation) {
 
   function parseKeywords(keywords) {
     return keywords
-      .split(' ')
+      .split(/\s+/)
       .filter((keyword) => {
         return !!keyword;
       })
@@ -262,19 +293,17 @@ function loadInsight(config, translation) {
     const weights = weightFactory(keywords);
     const filters = filterFactory(keywords);
     return {
-      posts: topItems(json.posts, filters.post, weights.post),
-      pages: topItems(json.pages, filters.page, weights.page),
-      categories: topItems(json.categories, filters.category, weights.category),
-      tags: topItems(json.tags, filters.tag, weights.tag),
+      posts: topItems(json.posts || [], filters.post, weights.post),
+      pages: topItems(json.pages || [], filters.page, weights.page),
+      categories: topItems(json.categories || [], filters.category, weights.category),
+      tags: topItems(json.tags || [], filters.tag, weights.tag),
     };
   }
 
   function searchResultToDOM(keywords, searchResult) {
     $container.empty();
     for (const key in searchResult) {
-      $container.append(
-        sectionFactory(parseKeywords(keywords), key.toUpperCase(), searchResult[key]),
-      );
+      $container.append(sectionFactory(parseKeywords(keywords), key, searchResult[key]));
     }
   }
 
@@ -293,6 +322,7 @@ function loadInsight(config, translation) {
 
   function selectItemByDiff(value) {
     const $items = $.makeArray($container.find('.searchbox-result-item'));
+    if (!$items.length) return;
     let prevPosition = -1;
     $items.forEach((item, index) => {
       if ($(item).hasClass('active')) {
@@ -311,6 +341,7 @@ function loadInsight(config, translation) {
     if (!$main.hasClass('show')) {
       opener = document.activeElement;
       $main.addClass('show');
+      refreshIndex();
     }
     $input.focus();
   }
@@ -344,16 +375,8 @@ function loadInsight(config, translation) {
     }
   }
 
-  $.getJSON(config.contentUrl, (json) => {
-    if (location.hash.trim() === '#insight-search') {
-      $main.addClass('show');
-    }
-    $input.on('input', function () {
-      const keywords = $(this).val();
-      searchResultToDOM(keywords, search(json, keywords));
-    });
-    $input.trigger('input');
-  });
+  $input.on('input', renderResults);
+  if (location.hash.trim() === '#insight-search') open();
 
   let touch = false;
   $(document)

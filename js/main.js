@@ -274,7 +274,9 @@
             };
             const $open = $navbar.find('.navbar-link[aria-expanded="true"]');
             // Also hide a sub-menu shown by hovering it.
-            $navbar.find('.has-dropdown').filter(':hover').addClass('is-hover-closed');
+            $navbar.find('.has-dropdown').filter(function() {
+                return this.matches(':hover');
+            }).addClass('is-hover-closed');
             if ($open.length) {
                 // Close the open sub-menu first, and the folded menu on the next Escape.
                 closeNavbarDropdowns();
